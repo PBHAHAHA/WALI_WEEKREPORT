@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  /* Colors */
+  --color-background: #FDFDFD;
+  --color-sidebar: #FBFBFB;
+  --color-surface: #FFFFFF;
+  --color-input-bg: #EFF1F0;
+
+  --color-primary: #546350;
+  --color-primary-hover: #455242;
+  --color-primary-foreground: #FFFFFF;
+
+  --color-text-main: #2F2F2F;
+  --color-text-secondary: #4F4F4F;
+  --color-text-muted: #8F8F8F;
+  --color-text-placeholder: #A0A0A0;
+
+  --color-accent-green: #2F4F2F;
+  --color-status-online: #4ADE80;
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-input: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
