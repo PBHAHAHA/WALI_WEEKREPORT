@@ -9,6 +9,7 @@ import { MailModule } from './mail/mail.module';
 import { DailyLogModule } from './daily-log/daily-log.module';
 import { WeeklyReportModule } from './weekly-report/weekly-report.module';
 import { AiModule } from './ai/ai.module';
+import { TemplateModule } from './template/template.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AiModule } from './ai/ai.module';
         database: configService.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true, // 开发环境使用，生产环境应设为 false
+        charset: 'utf8mb4',
       }),
       inject: [ConfigService],
     }),
@@ -36,6 +38,7 @@ import { AiModule } from './ai/ai.module';
     DailyLogModule,
     WeeklyReportModule,
     AiModule,
+    TemplateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

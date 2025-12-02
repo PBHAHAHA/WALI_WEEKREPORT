@@ -55,6 +55,18 @@ export const useWeeklyReport = () => {
     return api.del(`/weekly-reports/${id}`)
   }
 
+  // 使用模板生成周报
+  const generateWithTemplate = async (data: {
+    templateId?: number
+    dailyLogs: Array<{ date: string; content: string }>
+    year: number
+    weekNumber: number
+    startDate?: string
+    endDate?: string
+  }) => {
+    return api.post<WeeklyReport>('/weekly-reports/generate-with-template', data)
+  }
+
   return {
     create,
     getAll,
@@ -62,5 +74,6 @@ export const useWeeklyReport = () => {
     getOne,
     update,
     remove,
+    generateWithTemplate,
   }
 }

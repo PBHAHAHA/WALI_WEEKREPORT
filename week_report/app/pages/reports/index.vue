@@ -1,17 +1,5 @@
 <template>
   <div class="p-8 max-w-6xl mx-auto pt-12 pl-12">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-2xl font-semibold text-text-main mb-2">周报管理</h1>
-        <p class="text-sm text-text-muted">查看和管理你的周报记录</p>
-      </div>
-      <Button variant="primary" @click="handleCreateReport">
-        <Plus class="w-4 h-4 mr-2" />
-        新建周报
-      </Button>
-    </div>
-
     <!-- Reports List -->
     <div v-if="loading" class="flex items-center justify-center py-20">
       <div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -26,33 +14,81 @@
     </div>
 
     <!-- Card Grid -->
-    <div v-else class="flex flex-wrap gap-6">
+    <div v-else class="flex flex-wrap gap-5">
       <div
         v-for="report in reports"
         :key="report.id"
         @click="viewReport(report.id)"
-        class="sketch-card w-[260px] cursor-pointer group"
+        class="w-[280px] bg-white border border-gray-200 rounded overflow-hidden hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group"
       >
-        <div class="sketch-card-inner">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-bold text-text-main text-lg group-hover:text-primary transition-colors">
-              {{ report.title }}
-            </h3>
-            <!-- 胶带装饰 -->
-            <div class="w-8 h-3 bg-yellow-200/50 transform rotate-3 absolute top-2 right-1/2 translate-x-1/2 backdrop-blur-sm border border-white/20" />
-          </div>
-          
-          <p class="text-sm text-gray-600 line-clamp-4 mb-4 min-h-[80px] leading-relaxed flex-1 font-handwriting">
-            {{ report.summary || '暂无摘要内容...' }}
+        <!-- Card Top Accent -->
+        <div class="h-1.5 bg-gradient-to-r from-primary to-primary/50" />
+        
+        <!-- Card Content -->
+        <div class="p-5">
+          <h3 class="font-bold text-text-main mb-2 group-hover:text-primary transition-colors">
+            {{ report.title }}
+          </h3>
+          <p class="text-sm text-gray-500 line-clamp-3 mb-4 min-h-[60px]">
+            {{ report.summary || '暂无摘要内容，点击查看详情...' }}
           </p>
-          
-          <div class="text-xs text-gray-500 pt-3 border-t-2 border-dashed border-gray-200 font-mono flex justify-between items-center">
-            <span>{{ formatDateRange(report.startDate, report.endDate) }}</span>
-            <span class="w-2 h-2 rounded-full" :class="report.summary ? 'bg-green-400' : 'bg-gray-300'" />
+          <div class="text-xs text-gray-400">
+            {{ formatDateRange(report.startDate, report.endDate) }}
           </div>
         </div>
       </div>
     </div>
+
+    <!-- View/Edit Modal -->
+    <Modal 
+      :open="showViewModal" 
+      title="编辑周报" 
+      width="max-w-4xl"
+      @close="closeViewModal"
+    >
+      <div v-if="viewingReport" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">标题</label>
+          <input
+            v-model="editTitle"
+            type="text"
+            class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            placeholder="周报标题"
+          />
+        </div>
+
+        <div class="flex items-center gap-2 text-sm text-gray-500 pb-3 border-b">
+          <span>{{ formatDateRange(viewingReport.startDate, viewingReport.endDate) }}</span>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">内容</label>
+          <RichEditor
+            v-model="editContent"
+            placeholder="编辑周报内容..."
+            min-height="400px"
+          />
+        </div>
+      </div>
+      
+      <template #footer>
+        <Button 
+          variant="secondary" 
+          @click="handleDeleteReport"
+        >
+          删除
+        </Button>
+        <div class="flex-1"></div>
+        <Button variant="secondary" @click="closeViewModal">取消</Button>
+        <Button 
+          variant="primary" 
+          :disabled="submitting || !editTitle.trim()"
+          @click="handleSaveEdit"
+        >
+          {{ submitting ? '保存中...' : '保存' }}
+        </Button>
+      </template>
+    </Modal>
 
     <!-- Create/Edit Modal -->
     <Modal 
@@ -144,7 +180,11 @@ const router = useRouter()
 const loading = ref(true)
 const reports = ref<WeeklyReport[]>([])
 const showCreateModal = ref(false)
+const showViewModal = ref(false)
+const viewingReport = ref<WeeklyReport | null>(null)
 const editingReport = ref<WeeklyReport | null>(null)
+const editTitle = ref('')
+const editContent = ref('')
 const submitting = ref(false)
 
 const formData = ref({
@@ -228,17 +268,63 @@ const editReport = (id: number) => {
 }
 
 // 查看周报
-const viewReport = (id: number) => {
-  router.push(`/reports/${id}`)
+const viewReport = async (id: number) => {
+  try {
+    const report = await weeklyReport.getOne(id)
+    viewingReport.value = report
+    editTitle.value = report.title
+    editContent.value = report.content
+    showViewModal.value = true
+  } catch (error) {
+    console.error('加载周报失败:', error)
+  }
+}
+
+// 关闭查看弹窗
+const closeViewModal = () => {
+  showViewModal.value = false
+  viewingReport.value = null
+  editTitle.value = ''
+  editContent.value = ''
+}
+
+// 保存编辑
+const handleSaveEdit = async () => {
+  if (!viewingReport.value || submitting.value || !editTitle.value.trim()) return
+  
+  submitting.value = true
+  try {
+    await weeklyReport.update(viewingReport.value.id, {
+      title: editTitle.value,
+      content: editContent.value
+    })
+    
+    // 更新本地数据
+    viewingReport.value.title = editTitle.value
+    viewingReport.value.content = editContent.value
+    const index = reports.value.findIndex(r => r.id === viewingReport.value!.id)
+    if (index !== -1) {
+      reports.value[index].title = editTitle.value
+      reports.value[index].content = editContent.value
+    }
+    
+    closeViewModal()
+  } catch (error) {
+    console.error('保存失败:', error)
+  } finally {
+    submitting.value = false
+  }
 }
 
 // 删除周报
-const deleteReport = async (id: number) => {
+const handleDeleteReport = async () => {
+  if (!viewingReport.value) return
   if (!confirm('确定要删除这份周报吗？')) return
   
   try {
-    await weeklyReport.remove(id)
-    reports.value = reports.value.filter(r => r.id !== id)
+    await weeklyReport.remove(viewingReport.value.id)
+    reports.value = reports.value.filter(r => r.id !== viewingReport.value!.id)
+    closeViewModal()
   } catch (error) {
     console.error('删除失败:', error)
   }
@@ -275,61 +361,3 @@ onMounted(() => {
   loadReports()
 })
 </script>
-
-<style scoped>
-/* 手绘风格卡片 v2 */
-.sketch-card {
-  position: relative;
-  transition: transform 0.2s ease;
-}
-
-.sketch-card:hover {
-  transform: rotate(-1deg) scale(1.02);
-  z-index: 10;
-}
-
-.sketch-card-inner {
-  background: white;
-  border: 2px solid #374151;
-  /* 非对称圆角模拟手绘感 */
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  padding: 1.25rem;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 4px 4px 0 #374151; /* 硬阴影 */
-  transition: all 0.2s ease;
-}
-
-.sketch-card:hover .sketch-card-inner {
-  box-shadow: 6px 6px 0 #374151;
-  border-color: #000;
-}
-
-/* 内部虚线框 */
-.sketch-card-content {
-  border: 1px dashed #9ca3af;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  padding: 1rem;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 随机旋转一点点，增加自然感 */
-.sketch-card:nth-child(2n) {
-  transform: rotate(1deg);
-}
-
-.sketch-card:nth-child(3n) {
-  transform: rotate(-0.5deg);
-}
-
-.sketch-card:nth-child(2n):hover {
-  transform: rotate(0deg) scale(1.02);
-}
-
-.sketch-card:nth-child(3n):hover {
-  transform: rotate(0deg) scale(1.02);
-}
-</style>

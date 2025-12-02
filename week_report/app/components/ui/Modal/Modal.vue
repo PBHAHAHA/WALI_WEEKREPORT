@@ -49,7 +49,7 @@ const handleBackdropClick = (e: MouseEvent) => {
           </div>
           
           <!-- Content -->
-          <div class="px-6 py-4">
+          <div class="px-6 py-4 max-h-[calc(100vh-200px)] overflow-y-auto">
             <slot />
           </div>
           

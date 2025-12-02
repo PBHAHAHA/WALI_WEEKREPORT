@@ -9,10 +9,16 @@ import {
   Query,
   UseGuards,
   Request,
+  Sse,
+  MessageEvent,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { WeeklyReportService } from './weekly-report.service';
 import { CreateWeeklyReportDto } from './dto/create-weekly-report.dto';
 import { UpdateWeeklyReportDto } from './dto/update-weekly-report.dto';
+import { GenerateWithTemplateDto } from './dto/generate-with-template.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('weekly-reports')
@@ -30,6 +36,34 @@ export class WeeklyReportController {
     @Body() dto: CreateWeeklyReportDto,
   ) {
     return this.weeklyReportService.create(req.user.userId, dto);
+  }
+
+  /**
+   * 使用模板生成周报
+   * POST /api/weekly-reports/generate-with-template
+   */
+  @Post('generate-with-template')
+  async generateWithTemplate(
+    @Request() req: { user: { userId: number } },
+    @Body() dto: GenerateWithTemplateDto,
+  ) {
+    return this.weeklyReportService.generateWithTemplate(req.user.userId, dto);
+  }
+
+  /**
+   * 使用模板生成周报（流式）
+   * POST /api/weekly-reports/generate-with-template/stream
+   */
+  @Post('generate-with-template/stream')
+  @Sse()
+  generateWithTemplateStream(
+    @Request() req: { user: { userId: number } },
+    @Body() dto: GenerateWithTemplateDto,
+  ): Observable<MessageEvent> {
+    return this.weeklyReportService.generateWithTemplateStream(req.user.userId, dto).pipe(
+      map((content) => ({ data: { content } })),
+      catchError((error) => of({ data: { error: error.message } })),
+    );
   }
 
   /**

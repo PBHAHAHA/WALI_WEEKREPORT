@@ -12,4 +12,12 @@ export class UpdateWeeklyReportDto {
   @IsOptional()
   @IsString({ message: '摘要必须是字符串' })
   summary?: string;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
 }

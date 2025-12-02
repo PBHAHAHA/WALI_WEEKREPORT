@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
   <div 
     v-if="variant === 'default'"
     :class="cn(
-      'bg-surface p-6 rounded-xl border border-gray-100 shadow-card hover:shadow-card-hover transition-all h-56 flex flex-col justify-between cursor-pointer group',
+      'bg-surface p-6 rounded-2xl border border-gray-100 shadow-card hover:shadow-card-hover transition-all h-56 flex flex-col justify-between cursor-pointer group',
       props.class
     )"
   >

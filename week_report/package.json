@@ -1,5 +1,5 @@
 {
-  "name": "week_report",
+  "name": "@week-report/web",
   "type": "module",
   "private": true,
   "scripts": {

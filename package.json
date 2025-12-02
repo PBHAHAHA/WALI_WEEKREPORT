@@ -1,0 +1,27 @@
+{
+  "name": "week-report-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Week Report System - Monorepo",
+  "scripts": {
+    "dev": "pnpm --filter @week-report/web dev & pnpm --filter @week-report/server start:dev",
+    "dev:web": "pnpm --filter @week-report/web dev",
+    "dev:server": "pnpm --filter @week-report/server start:dev",
+    "build": "pnpm --filter @week-report/web build && pnpm --filter @week-report/server build",
+    "build:web": "pnpm --filter @week-report/web build",
+    "build:server": "pnpm --filter @week-report/server build",
+    "start": "pnpm --filter @week-report/server start:prod",
+    "lint": "pnpm --recursive lint",
+    "clean": "pnpm --recursive exec rm -rf node_modules dist .nuxt .output"
+  },
+  "keywords": [
+    "monorepo",
+    "week-report",
+    "nuxt",
+    "nestjs"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

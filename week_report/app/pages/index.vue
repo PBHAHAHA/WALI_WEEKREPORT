@@ -18,12 +18,12 @@
             <template #actions-right>
               <Button 
                 variant="primary" 
-                class="rounded-full pl-5 pr-4 py-2 bg-primary hover:bg-primary-hover text-white"
+                class="rounded-full pl-6 pr-5 py-2.5 bg-[#4A6B4D] hover:bg-[#3D5A40] text-white border-none shadow-md transition-all hover:shadow-lg active:scale-95"
                 :disabled="!aiQuestion.trim()"
                 @click="enterChatWithQuestion"
               >
-                <span class="text-sm font-medium">发送</span>
-                <Send class="w-4 h-4 opacity-80 ml-1" />
+                <span class="text-sm font-medium">开始</span>
+                <CornerDownLeft class="w-4 h-4 ml-2 opacity-90" />
               </Button>
             </template>
           </ScriptInput>
@@ -40,7 +40,7 @@
           variant="ghost" 
           size="sm" 
           class="text-xs text-primary hover:text-primary-hover"
-          @click="enterChatForWeeklyReport"
+          @click="showTemplateSelectionModal"
         >
           生成周报 <ArrowRight class="w-3 h-3 ml-1" />
         </Button>
@@ -72,8 +72,9 @@
           v-for="report in recentReports" 
           :key="report.id"
           :title="report.title"
-          :description="report.summary || '暂无摘要'"
+          :description="cleanSummary(report.summary) || '暂无摘要'"
           :meta="report.startDate"
+          @click="viewRecentReport(report.id)"
         />
       </div>
       <div v-else class="text-center py-8 text-gray-400">
@@ -102,6 +103,129 @@
         </Button>
       </template>
     </Modal>
+
+    <!-- Generate Report Modal -->
+    <Modal :open="showGenerateModal" title="生成周报" width="max-w-4xl" @close="closeGenerateModal">
+      <div class="space-y-4">
+        <!-- Template Selection -->
+        <div v-if="!isGenerating && !generatedContent">
+          <p class="text-sm text-gray-500 mb-3">选择一个模板来生成本周周报，或不使用模板直接生成</p>
+          
+          <div v-if="loadingTemplates" class="flex items-center justify-center py-8">
+            <Loader2 class="w-6 h-6 animate-spin text-primary" />
+          </div>
+          
+          <div v-else class="space-y-2 max-h-[300px] overflow-y-auto">
+            <div
+              @click="selectedTemplateId = null"
+              class="p-3 border-2 rounded-lg cursor-pointer transition-all"
+              :class="selectedTemplateId === null ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'"
+            >
+              <div class="font-medium text-sm">不使用模板</div>
+              <div class="text-xs text-gray-500 mt-1">使用默认格式生成周报</div>
+            </div>
+            
+            <div
+              v-for="template in templates"
+              :key="template.id"
+              @click="selectedTemplateId = template.id"
+              class="p-3 border-2 rounded-lg cursor-pointer transition-all"
+              :class="selectedTemplateId === template.id ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'"
+            >
+              <div class="font-medium text-sm">{{ template.title }}</div>
+              <div class="text-xs text-gray-500 mt-1 line-clamp-2">{{ template.description || '暂无描述' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generating / Generated Content -->
+        <div v-if="isGenerating || generatedContent" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-gray-700">周报内容</label>
+            <div v-if="isGenerating" class="flex items-center gap-2 text-xs text-gray-500">
+              <Loader2 class="w-3 h-3 animate-spin" />
+              <span>AI 生成中...</span>
+            </div>
+          </div>
+          <RichEditor
+            v-model="generatedContent"
+            placeholder="生成的周报内容将显示在这里..."
+            min-height="400px"
+            :readonly="isGenerating"
+          />
+        </div>
+      </div>
+      
+      <template #footer>
+        <Button variant="secondary" @click="closeGenerateModal">取消</Button>
+        <Button 
+          v-if="!isGenerating && !generatedContent"
+          variant="primary" 
+          @click="startGenerating"
+        >
+          开始生成
+        </Button>
+        <Button 
+          v-if="generatedContent && !isGenerating"
+          variant="primary" 
+          :disabled="savingReport"
+          @click="handleSaveGeneratedReport"
+        >
+          {{ savingReport ? '保存中...' : '保存周报' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- View Report Modal -->
+    <Modal 
+      :open="showReportViewModal" 
+      title="编辑周报" 
+      width="max-w-4xl"
+      @close="closeReportViewModal"
+    >
+      <div v-if="viewingReport" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">标题</label>
+          <input
+            v-model="reportEditTitle"
+            type="text"
+            class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            placeholder="周报标题"
+          />
+        </div>
+
+        <div class="flex items-center gap-2 text-sm text-gray-500 pb-3 border-b">
+          <span>{{ formatReportDateRange(viewingReport.startDate, viewingReport.endDate) }}</span>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">内容</label>
+          <RichEditor
+            v-model="reportEditContent"
+            placeholder="编辑周报内容..."
+            min-height="400px"
+          />
+        </div>
+      </div>
+      
+      <template #footer>
+        <Button 
+          variant="secondary" 
+          @click="handleDeleteReportFromHome"
+        >
+          删除
+        </Button>
+        <div class="flex-1"></div>
+        <Button variant="secondary" @click="closeReportViewModal">取消</Button>
+        <Button 
+          variant="primary" 
+          :disabled="savingReport || !reportEditTitle.trim()"
+          @click="handleSaveReportFromHome"
+        >
+          {{ savingReport ? '保存中...' : '保存' }}
+        </Button>
+      </template>
+    </Modal>
       </div>
     </Transition>
 
@@ -127,7 +251,14 @@ definePageMeta({
   middleware: 'auth',
 })
 
-import { Send, CalendarDays, ArrowRight, FileText } from 'lucide-vue-next'
+import { 
+  CalendarDays, 
+  FileText, 
+  ArrowRight, 
+  Send, 
+  CornerDownLeft,
+  Loader2
+} from 'lucide-vue-next'
 import Button from '~/components/ui/Button/Button.vue'
 import Card from '~/components/ui/Card/Card.vue'
 import ScriptInput from '~/components/ui/Input/ScriptInput.vue'
@@ -139,6 +270,8 @@ import { cn } from '~/utils/cn'
 const { user, initAuth } = useAuth()
 const dailyLog = useDailyLog()
 const weeklyReport = useWeeklyReport()
+const templateService = useTemplate()
+const router = useRouter()
 
 // 类型定义
 interface WeekDay {
@@ -146,6 +279,13 @@ interface WeekDay {
   date: string
   displayDate: string
   content: string
+}
+
+interface Template {
+  id: number
+  title: string
+  description: string
+  type: string
 }
 
 // 状态
@@ -160,6 +300,21 @@ const recentReports = ref<Array<{ id: number; title: string; summary: string; st
 const showEditModal = ref(false)
 const editingDay = ref<WeekDay | null>(null)
 const editContent = ref('')
+
+// 生成周报弹窗状态
+const showGenerateModal = ref(false)
+const templates = ref<Template[]>([])
+const selectedTemplateId = ref<number | null>(null)
+const loadingTemplates = ref(false)
+const isGenerating = ref(false)
+const generatedContent = ref('')
+const savingReport = ref(false)
+
+// 查看周报弹窗状态
+const showReportViewModal = ref(false)
+const viewingReport = ref<any>(null)
+const reportEditTitle = ref('')
+const reportEditContent = ref('')
 
 // 获取当前周数
 const currentWeekNumber = computed(() => {
@@ -235,6 +390,14 @@ const formatModalDate = (dateStr: string) => {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
 
+// 清理摘要中的 HTML 标签
+const cleanSummary = (summary: string) => {
+  if (!summary) return ''
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = summary
+  return tempDiv.textContent || tempDiv.innerText || ''
+}
+
 // 点击日期卡片 - 打开弹窗
 const handleDayClick = (day: WeekDay) => {
   editingDay.value = day
@@ -273,18 +436,257 @@ const enterChatWithQuestion = () => {
   chatMode.value = true
 }
 
-// 进入对话模式（生成周报）
-const enterChatForWeeklyReport = () => {
+// 显示生成周报弹窗
+const showTemplateSelectionModal = async () => {
   const logsWithContent = weekDays.value.filter(day => day.content)
   if (logsWithContent.length === 0) {
-    pendingQuestion.value = '帮我生成本周周报'
-  } else {
-    const logsText = logsWithContent
-      .map(day => `${day.date}: ${day.content}`)
-      .join('\n')
-    pendingQuestion.value = `请根据以下日报内容帮我生成周报：\n\n${logsText}`
+    alert('请先添加本周的日报内容')
+    return
   }
-  chatMode.value = true
+  
+  showGenerateModal.value = true
+  generatedContent.value = ''
+  selectedTemplateId.value = null
+  
+  loadingTemplates.value = true
+  try {
+    const myTemplates = await templateService.getMy('weekly')
+    templates.value = myTemplates
+  } catch (error) {
+    console.error('加载模板失败:', error)
+  } finally {
+    loadingTemplates.value = false
+  }
+}
+
+// 关闭生成弹窗
+const closeGenerateModal = () => {
+  showGenerateModal.value = false
+  selectedTemplateId.value = null
+  generatedContent.value = ''
+  isGenerating.value = false
+}
+
+// 开始生成周报（流式）
+const startGenerating = async () => {
+  const logsWithContent = weekDays.value.filter(day => day.content)
+  if (logsWithContent.length === 0) {
+    alert('请先添加本周的日报内容')
+    return
+  }
+  
+  isGenerating.value = true
+  generatedContent.value = ''
+  let markdownBuffer = ''
+  
+  try {
+    const now = new Date()
+    const year = now.getFullYear()
+    const weekNumber = currentWeekNumber.value
+    
+    // 计算本周开始和结束日期
+    const dayOfWeek = now.getDay()
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + diffToMonday)
+    const friday = new Date(monday)
+    friday.setDate(monday.getDate() + 4)
+    
+    const requestData = {
+      templateId: selectedTemplateId.value || undefined,
+      dailyLogs: logsWithContent.map(day => ({
+        date: day.date,
+        content: day.content
+      })),
+      year,
+      weekNumber,
+      startDate: monday.toISOString().split('T')[0],
+      endDate: friday.toISOString().split('T')[0],
+    }
+    
+    // 使用 fetch 接收流式响应
+    const token = useCookie('auth_token').value
+    const response = await fetch('http://localhost:3001/api/weekly-reports/generate-with-template/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestData),
+    })
+    
+    if (!response.ok) {
+      throw new Error('生成失败')
+    }
+    
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    
+    // 动态导入 marked 库
+    const { marked } = await import('marked')
+    
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              if (data.content) {
+                markdownBuffer += data.content
+                // 实时将 Markdown 转换为 HTML
+                generatedContent.value = marked(markdownBuffer) as string
+              }
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
+        }
+      }
+    }
+    
+    isGenerating.value = false
+  } catch (error) {
+    console.error('生成周报失败:', error)
+    alert('生成周报失败，请稍后重试')
+    isGenerating.value = false
+  }
+}
+
+// 保存生成的周报
+const handleSaveGeneratedReport = async () => {
+  if (!generatedContent.value || savingReport.value) return
+  
+  savingReport.value = true
+  try {
+    const now = new Date()
+    const year = now.getFullYear()
+    const weekNumber = currentWeekNumber.value
+    
+    // 计算本周开始和结束日期
+    const dayOfWeek = now.getDay()
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + diffToMonday)
+    const friday = new Date(monday)
+    friday.setDate(monday.getDate() + 4)
+    
+    // 生成摘要（去除 HTML 标签）
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = generatedContent.value
+    const summary = (tempDiv.textContent || tempDiv.innerText || '').substring(0, 200)
+    
+    // 检查是否已存在该周的周报
+    const existingReports = await weeklyReport.getAll()
+    const existingReport = existingReports.data.find(
+      r => r.year === year && r.weekNumber === weekNumber
+    )
+    
+    if (existingReport) {
+      // 更新现有周报
+      await weeklyReport.update(existingReport.id, {
+        content: generatedContent.value,
+        summary,
+        startDate: monday.toISOString().split('T')[0],
+        endDate: friday.toISOString().split('T')[0],
+      })
+    } else {
+      // 创建新周报
+      await weeklyReport.create({
+        title: `第${weekNumber}周工作周报`,
+        content: generatedContent.value,
+        summary,
+        year,
+        weekNumber,
+        startDate: monday.toISOString().split('T')[0] || '',
+        endDate: friday.toISOString().split('T')[0] || '',
+      })
+    }
+    
+    // 刷新最近周报列表
+    await loadRecentReports()
+    closeGenerateModal()
+  } catch (error) {
+    console.error('保存周报失败:', error)
+    alert('保存周报失败，请稍后重试')
+  } finally {
+    savingReport.value = false
+  }
+}
+
+// 查看最近周报
+const viewRecentReport = async (id: number) => {
+  try {
+    const report = await weeklyReport.getOne(id)
+    viewingReport.value = report
+    reportEditTitle.value = report.title
+    reportEditContent.value = report.content
+    showReportViewModal.value = true
+  } catch (error) {
+    console.error('加载周报失败:', error)
+  }
+}
+
+// 关闭查看周报弹窗
+const closeReportViewModal = () => {
+  showReportViewModal.value = false
+  viewingReport.value = null
+  reportEditTitle.value = ''
+  reportEditContent.value = ''
+}
+
+// 格式化周报日期范围
+const formatReportDateRange = (start: string, end: string) => {
+  if (!start || !end) return ''
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  const startStr = `${startDate.getMonth() + 1}月${startDate.getDate()}日`
+  const endStr = `${endDate.getMonth() + 1}月${endDate.getDate()}日`
+  return `${startStr} - ${endStr}`
+}
+
+// 保存周报编辑
+const handleSaveReportFromHome = async () => {
+  if (!viewingReport.value || savingReport.value || !reportEditTitle.value.trim()) return
+  
+  savingReport.value = true
+  try {
+    await weeklyReport.update(viewingReport.value.id, {
+      title: reportEditTitle.value,
+      content: reportEditContent.value
+    })
+    
+    // 更新本地数据
+    const index = recentReports.value.findIndex(r => r.id === viewingReport.value.id)
+    if (index !== -1) {
+      recentReports.value[index].title = reportEditTitle.value
+    }
+    
+    closeReportViewModal()
+  } catch (error) {
+    console.error('保存失败:', error)
+  } finally {
+    savingReport.value = false
+  }
+}
+
+// 删除周报
+const handleDeleteReportFromHome = async () => {
+  if (!viewingReport.value) return
+  if (!confirm('确定要删除这份周报吗？')) return
+  
+  try {
+    await weeklyReport.remove(viewingReport.value.id)
+    recentReports.value = recentReports.value.filter(r => r.id !== viewingReport.value.id)
+    closeReportViewModal()
+  } catch (error) {
+    console.error('删除失败:', error)
+  }
 }
 
 // 退出对话模式
