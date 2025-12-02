@@ -12,7 +12,7 @@ interface ImproveDailyLogResponse {
 
 export const useAi = () => {
   const config = useRuntimeConfig()
-  const apiBase = config.public.apiBase || 'http://localhost:3001/api'
+  const apiBase = config.public.apiBaseUrl || 'http://localhost:3001/api'
   const token = useCookie('auth_token')
 
   // AI 问答（流式）

@@ -27,6 +27,22 @@ report/
 - Node.js >= 18.0.0
 - pnpm >= 8.0.0
 
+### 环境变量配置
+
+在前端项目目录下创建 `.env` 文件：
+
+```bash
+cd packages/week_report
+cp .env.example .env
+```
+
+编辑 `.env` 文件配置 API 地址：
+
+```env
+# API Configuration
+NUXT_PUBLIC_API_BASE_URL=http://localhost:3001/api
+```
+
 ### 安装依赖
 
 在项目根目录执行：

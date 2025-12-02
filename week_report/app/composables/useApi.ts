@@ -1,5 +1,3 @@
-const API_BASE_URL = 'http://localhost:3001/api'
-
 interface ApiResponse<T = unknown> {
   data: T
   message?: string
@@ -11,6 +9,8 @@ interface ApiError {
 }
 
 export const useApi = () => {
+  const config = useRuntimeConfig()
+  const API_BASE_URL = config.public.apiBaseUrl || 'http://localhost:3001/api'
   const token = useCookie('auth_token')
 
   const request = async <T>(

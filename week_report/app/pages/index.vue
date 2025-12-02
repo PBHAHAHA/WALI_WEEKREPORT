@@ -505,8 +505,9 @@ const startGenerating = async () => {
     }
     
     // 使用 fetch 接收流式响应
+    const config = useRuntimeConfig()
     const token = useCookie('auth_token').value
-    const response = await fetch('http://localhost:3001/api/weekly-reports/generate-with-template/stream', {
+    const response = await fetch(`${config.public.apiBaseUrl}/weekly-reports/generate-with-template/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
