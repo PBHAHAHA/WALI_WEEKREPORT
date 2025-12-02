@@ -32,17 +32,25 @@
     <!-- Weekly Overview -->
     <div class="mb-16">
       <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center gap-2 text-text-muted">
-          <CalendarDays class="w-4 h-4" />
-          <span class="text-xs font-medium">本周概览 (第 {{ currentWeekNumber }} 周)</span>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 text-text-muted">
+            <CalendarDays class="w-4 h-4" />
+            <span class="text-xs font-medium">本周概览 (第 {{ currentWeekNumber }} 周)</span>
+          </div>
+          <div v-if="hasAnyDailyLog" class="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+            <Sparkles class="w-3.5 h-3.5" />
+            <span class="font-medium">可以生成周报了</span>
+          </div>
         </div>
         <Button 
-          variant="ghost" 
-          size="sm" 
-          class="text-xs text-primary hover:text-primary-hover"
+          variant="primary" 
+          size="md"
+          class="bg-gradient-to-r from-[#4A6B4D] to-[#5A7B5D] hover:from-[#3D5A40] hover:to-[#4A6B4D] text-white border-none shadow-lg hover:shadow-xl transition-all active:scale-95 px-6 py-2.5 text-sm font-medium"
           @click="showTemplateSelectionModal"
         >
-          生成周报 <ArrowRight class="w-3 h-3 ml-1" />
+          <Sparkles class="w-4 h-4 mr-2" />
+          生成周报
+          <ArrowRight class="w-4 h-4 ml-2" />
         </Button>
       </div>
       
@@ -257,7 +265,8 @@ import {
   ArrowRight, 
   Send, 
   CornerDownLeft,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-vue-next'
 import Button from '~/components/ui/Button/Button.vue'
 import Card from '~/components/ui/Card/Card.vue'
@@ -323,6 +332,11 @@ const currentWeekNumber = computed(() => {
   const diff = now.getTime() - start.getTime()
   const oneWeek = 1000 * 60 * 60 * 24 * 7
   return Math.ceil((diff / oneWeek) + 1)
+})
+
+// 检查是否有任何日报内容
+const hasAnyDailyLog = computed(() => {
+  return weekDays.value.some(day => day.content && day.content.trim().length > 0)
 })
 
 // 生成本周日期
