@@ -54,8 +54,17 @@ export const useAuth = () => {
       password,
     })
     token.value = response.accessToken
+    
     // 登录成功后获取完整用户信息
-    await fetchProfile()
+    // 重新创建 api 实例以确保使用最新的 token
+    const freshApi = useApi()
+    try {
+      const profile = await freshApi.get<User>('/auth/profile')
+      user.value = profile
+    } catch (error) {
+      console.error('获取用户信息失败:', error)
+    }
+    
     return response
   }
 
