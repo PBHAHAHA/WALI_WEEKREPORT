@@ -4,7 +4,6 @@
   "private": true,
   "description": "Week Report System - Monorepo",
   "scripts": {
-    "dev": "pnpm --filter @week-report/web dev & pnpm --filter @week-report/server start:dev",
     "dev:web": "pnpm --filter @week-report/web dev",
     "dev:server": "pnpm --filter @week-report/server start:dev",
     "build": "pnpm --filter @week-report/web build && pnpm --filter @week-report/server build",
