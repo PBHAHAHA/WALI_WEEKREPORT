@@ -124,11 +124,9 @@ const countdown = ref(0)
 const error = ref('')
 const success = ref('')
 
-// 如果已登录，重定向到首页
+// 重定向到首页
 onMounted(() => {
-  if (isLoggedIn.value) {
-    router.push('/')
-  }
+  router.push('/')
 })
 
 // 发送验证码

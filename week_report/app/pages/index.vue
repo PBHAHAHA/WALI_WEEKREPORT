@@ -8,21 +8,26 @@
       >
         <!-- Greeting Section -->
         <div class="mb-12">
-          <h1 class="text-[42px] font-medium text-text-main mb-3 tracking-tight">你好，{{ user?.nickname || '用户' }}</h1>
+          <h1 class="text-[42px] font-medium text-text-main mb-3 tracking-tight">你好，{{ user?.nickname || '访客' }}</h1>
           <p class="text-xl text-text-muted font-light tracking-wide">今天的工作进展如何？记录一下吧。</p>
         </div>
 
         <!-- AI Input Section -->
         <div class="mb-20">
-          <ScriptInput v-model="aiQuestion" placeholder="向 AI 提问，或让 AI 帮你生成周报...">
+          <ScriptInput 
+            v-model="aiQuestion" 
+            :placeholder="isLoggedIn ? '向 AI 提问，或让 AI 帮你生成周报...' : '登录后即可使用 AI 功能...'"
+            :readonly="!isLoggedIn"
+            @click="!isLoggedIn && (showAuthModal = true)"
+          >
             <template #actions-right>
               <Button 
                 variant="primary" 
                 class="rounded-full pl-6 pr-5 py-2.5 bg-[#4A6B4D] hover:bg-[#3D5A40] text-white border-none shadow-md transition-all hover:shadow-lg active:scale-95"
-                :disabled="!aiQuestion.trim()"
+                :disabled="!isLoggedIn || !aiQuestion.trim()"
                 @click="enterChatWithQuestion"
               >
-                <span class="text-sm font-medium">开始</span>
+                <span class="text-sm font-medium">{{ isLoggedIn ? '开始' : '登录使用' }}</span>
                 <CornerDownLeft class="w-4 h-4 ml-2 opacity-90" />
               </Button>
             </template>
@@ -35,7 +40,7 @@
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-text-muted">
             <CalendarDays class="w-4 h-4" />
-            <span class="text-xs font-medium">本周概览 (第 {{ currentWeekNumber }} 周)</span>
+            <span class="text-xs font-medium">本周概览 (第 {{ currentWeekNumber }} 周){{ !isLoggedIn ? ' - 演示' : '' }}</span>
           </div>
           <div v-if="hasAnyDailyLog" class="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
             <Sparkles class="w-3.5 h-3.5" />
@@ -72,21 +77,25 @@
     <div class="pb-12">
       <div class="flex items-center gap-2 mb-6 text-text-muted">
         <FileText class="w-4 h-4" />
-        <span class="text-xs font-medium">历史周报</span>
+        <span class="text-xs font-medium">历史周报{{ !isLoggedIn ? ' - 演示' : '' }}</span>
       </div>
       
-      <div v-if="recentReports.length > 0" class="grid grid-cols-1 md:grid-cols-4 gap-5">
+      <div v-if="displayReports.length > 0" class="grid grid-cols-1 md:grid-cols-4 gap-5">
          <Card 
-          v-for="report in recentReports" 
+          v-for="report in displayReports" 
           :key="report.id"
           :title="report.title"
           :description="cleanSummary(report.summary) || '暂无摘要'"
           :meta="report.startDate"
-          @click="viewRecentReport(report.id)"
+          @click="isLoggedIn ? viewRecentReport(report.id) : (showAuthModal = true)"
+          :class="cn(!isLoggedIn && 'cursor-pointer hover:border-primary/50')"
         />
       </div>
-      <div v-else class="text-center py-8 text-gray-400">
-        暂无周报记录
+      <div v-else class="text-center py-12 text-gray-400">
+        <p class="mb-4">{{ isLoggedIn ? '暂无周报记录' : '登录后查看你的周报' }}</p>
+        <Button v-if="!isLoggedIn" variant="primary" @click="showAuthModal = true">
+          立即登录
+        </Button>
       </div>
     </div>
 
@@ -251,13 +260,19 @@
         />
       </div>
     </Transition>
+
+    <!-- Auth Modal -->
+    <AuthModal 
+      :open="showAuthModal" 
+      :initial-mode="authModalMode"
+      @close="showAuthModal = false; authModalMode = 'login'"
+      @success="handleAuthSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-definePageMeta({
-  middleware: 'auth',
-})
+// 首页允许未登录访问
 
 import { 
   CalendarDays, 
@@ -275,8 +290,9 @@ import Modal from '~/components/ui/Modal/Modal.vue'
 import RichEditor from '~/components/ui/RichEditor/RichEditor.vue'
 import ChatView from '~/components/chat/ChatView.vue'
 import { cn } from '~/utils/cn'
+import AuthModal from '~/components/auth/AuthModal.vue'
 
-const { user, initAuth } = useAuth()
+const { user, isLoggedIn, initAuth } = useAuth()
 const dailyLog = useDailyLog()
 const weeklyReport = useWeeklyReport()
 const templateService = useTemplate()
@@ -325,6 +341,10 @@ const viewingReport = ref<any>(null)
 const reportEditTitle = ref('')
 const reportEditContent = ref('')
 
+// 登录弹窗状态
+const showAuthModal = ref(false)
+const authModalMode = ref<'login' | 'register'>('login')
+
 // 获取当前周数
 const currentWeekNumber = computed(() => {
   const now = new Date()
@@ -337,6 +357,34 @@ const currentWeekNumber = computed(() => {
 // 检查是否有任何日报内容
 const hasAnyDailyLog = computed(() => {
   return weekDays.value.some(day => day.content && day.content.trim().length > 0)
+})
+
+// 显示的周报列表（未登录时显示演示数据）
+const displayReports = computed(() => {
+  if (isLoggedIn.value) {
+    return recentReports.value
+  }
+  // 未登录时返回演示数据
+  return [
+    {
+      id: -1,
+      title: '第48周工作周报',
+      summary: '本周完成了用户管理模块的开发，优化了数据库查询性能，修复了若干 Bug...',
+      startDate: '2024-11-25'
+    },
+    {
+      id: -2,
+      title: '第47周工作周报',
+      summary: '完成了 API 接口的设计与实现，集成了第三方登录功能，开始前端页面的开发...',
+      startDate: '2024-11-18'
+    },
+    {
+      id: -3,
+      title: '第46周工作周报',
+      summary: '项目启动，完成了技术选型和架构设计，搭建了基础开发环境...',
+      startDate: '2024-11-11'
+    }
+  ]
 })
 
 // 生成本周日期
@@ -414,6 +462,10 @@ const cleanSummary = (summary: string) => {
 
 // 点击日期卡片 - 打开弹窗
 const handleDayClick = (day: WeekDay) => {
+  if (!isLoggedIn.value) {
+    showAuthModal.value = true
+    return
+  }
   editingDay.value = day
   editContent.value = day.content
   showEditModal.value = true
@@ -444,6 +496,10 @@ const handleSaveLog = async () => {
 
 // 进入对话模式（带问题）
 const enterChatWithQuestion = () => {
+  if (!isLoggedIn.value) {
+    showAuthModal.value = true
+    return
+  }
   if (!aiQuestion.value.trim()) return
   pendingQuestion.value = aiQuestion.value
   aiQuestion.value = ''
@@ -452,6 +508,10 @@ const enterChatWithQuestion = () => {
 
 // 显示生成周报弹窗
 const showTemplateSelectionModal = async () => {
+  if (!isLoggedIn.value) {
+    showAuthModal.value = true
+    return
+  }
   const logsWithContent = weekDays.value.filter(day => day.content)
   if (logsWithContent.length === 0) {
     alert('请先添加本周的日报内容')
@@ -710,10 +770,18 @@ const exitChatMode = () => {
   pendingQuestion.value = ''
 }
 
+// 登录成功后刷新数据
+const handleAuthSuccess = async () => {
+  await initAuth()
+  await Promise.all([loadWeekLogs(), loadRecentReports()])
+}
+
 // 初始化
 onMounted(async () => {
   await initAuth()
-  await Promise.all([loadWeekLogs(), loadRecentReports()])
+  if (isLoggedIn.value) {
+    await Promise.all([loadWeekLogs(), loadRecentReports()])
+  }
 })
 </script>
 

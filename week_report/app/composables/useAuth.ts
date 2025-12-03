@@ -86,7 +86,15 @@ export const useAuth = () => {
   const logout = () => {
     token.value = null
     user.value = null
-    router.push('/login')
+    // 如果当前在需要登录的页面，跳转到首页
+    const currentPath = router.currentRoute.value.path
+    const publicPages = ['/', '/login', '/register', '/playground']
+    if (!publicPages.includes(currentPath)) {
+      router.push('/')
+    } else {
+      // 如果已经在公开页面，刷新页面状态
+      router.push(currentPath)
+    }
   }
 
   // 初始化：检查登录状态

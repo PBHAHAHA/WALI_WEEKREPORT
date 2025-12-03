@@ -68,11 +68,9 @@ const form = reactive({
 const loading = ref(false)
 const error = ref('')
 
-// 如果已登录，重定向到首页
+// 重定向到首页
 onMounted(() => {
-  if (isLoggedIn.value) {
-    router.push('/')
-  }
+  router.push('/')
 })
 
 const handleLogin = async () => {
